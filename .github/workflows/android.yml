@@ -79,6 +79,17 @@ jobs:
         run: |
           set -o pipefail
           ./Godot_v4.3-stable_linux.x86_64 --headless --editor --verbose --path . --export-debug "Android" "build/sugeng-rahayu.apk" 2>&1 | tee "$RUNNER_TEMP/export.log"
+      - name: Sign APK with Android debug key
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/sugeng-rahayu.apk"
+          TOOLS="$ANDROID_HOME/build-tools/34.0.0"
+          "$TOOLS/zipalign" -f -p 4 "$APK" "build/sugeng-rahayu-aligned.apk"
+          "$TOOLS/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out "build/sugeng-rahayu-signed.apk" "build/sugeng-rahayu-aligned.apk"
+          "$TOOLS/apksigner" verify --verbose --print-certs "build/sugeng-rahayu-signed.apk"
+          mv "build/sugeng-rahayu-signed.apk" "$APK"
+          rm -f "build/sugeng-rahayu-aligned.apk"
       - name: Verify APK contents
         shell: bash
         run: |
