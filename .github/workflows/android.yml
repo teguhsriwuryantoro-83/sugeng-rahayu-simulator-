@@ -78,7 +78,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          ./Godot_v4.3-stable_linux.x86_64 --headless --path . --export-debug "Android" "build/sugeng-rahayu.apk" 2>&1 | tee "$RUNNER_TEMP/export.log"
+          ./Godot_v4.3-stable_linux.x86_64 --headless --editor --verbose --path . --export-debug "Android" "build/sugeng-rahayu.apk" 2>&1 | tee "$RUNNER_TEMP/export.log"
       - name: Verify APK contents
         shell: bash
         run: |
