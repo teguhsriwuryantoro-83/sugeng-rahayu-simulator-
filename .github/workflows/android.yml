@@ -28,7 +28,18 @@ jobs:
           test -n "$SDKMANAGER"
           test -x "$SDKMANAGER"
           echo "Using SDK manager: $SDKMANAGER"
+          java -version
+          "$SDKMANAGER" --version
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
+          LICENSE_EXIT=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$LICENSE_EXIT" -ne 0 ]; then
+            echo "::warning::SDK license command exited $LICENSE_EXIT; inspecting installed packages"
+          fi
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          ls -la "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+
       - name: Install Godot 4.3 and templates
         shell: bash
         run: |
@@ -60,6 +71,14 @@ jobs:
         run: ./Godot_v4.3-stable_linux.x86_64 --headless --path . --export-debug Android build/sugeng-rahayu.apk
       - name: Verify APK
         run: test -s build/sugeng-rahayu.apk && unzip -t build/sugeng-rahayu.apk | tail -1
+      - name: Collect build diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          echo "PATH=$PATH"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          find "$ANDROID_HOME" -maxdepth 4 -name sdkmanager -o -name android.jar 2>/dev/null | head -50 || true
+          find build -maxdepth 2 -type f 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         with:
           name: sugeng-rahayu-apk
