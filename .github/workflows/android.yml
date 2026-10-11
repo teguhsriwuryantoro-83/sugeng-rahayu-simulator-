@@ -5,27 +5,37 @@ permissions:
   contents: read
 jobs:
   export:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Install Godot 4.3 and templates
+      - name: Use runner Android SDK
+        shell: bash
         run: |
-          curl -fL -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          set -euxo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Install Godot 4.3 and templates
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
           unzip -q godot.zip
           chmod +x Godot_v4.3-stable_linux.x86_64
-          curl -fL -o templates.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          curl -fL --retry 3 -o templates.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
           mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
           unzip -q templates.tpz
           cp templates/* "$HOME/.local/share/godot/export_templates/4.3.stable/"
-      - name: Configure debug keystore
+      - name: Configure Android debug signing
+        shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p "$HOME/.android" "$HOME/.config/godot" build
           keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
@@ -36,11 +46,11 @@ jobs:
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
           EOF
-      - name: Import
+      - name: Import project
         run: ./Godot_v4.3-stable_linux.x86_64 --headless --editor --path . --import
-      - name: Export debug APK
+      - name: Export APK
         run: ./Godot_v4.3-stable_linux.x86_64 --headless --path . --export-debug Android build/sugeng-rahayu.apk
-      - name: Verify
+      - name: Verify APK
         run: test -s build/sugeng-rahayu.apk && unzip -t build/sugeng-rahayu.apk | tail -1
       - uses: actions/upload-artifact@v4
         with:
